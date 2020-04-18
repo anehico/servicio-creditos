@@ -97,6 +97,95 @@ $app1->post('/crearEmpresa', function (Request $request, Response $response) {
     
     
 });
+/*
+TipoId
+RC - Registro Civil -1
+TI - Tarjeta de identidad. -2
+CC - Cédula de ciudadanía -3
+CE - Cédula de extranjería -4
+PA - Pasaporte -5 
+*/
+$app1->post('/insertarCliente', function (Request $request, Response $response) {
+    $name = $request->getAttribute('name');
+    $postData = $request->getParsedBody();
+    $gump = new GUMP('es');
+    $gump->validation_rules(
+            array(
+            'tipoId' => 'required|contains,1 2 3 4 5',
+            'Id' => 'required|max_len,15',
+            'nombre' => 'required|max_len,255',
+            'telefono' => 'required|max_len,50',
+            'e_mail' => 'required|valid_email|max_len,50',
+            'direccion' => 'required|max_len,255',
+            'idEmpresa' => 'required|numeric'
+            )
+        );
+    $gump->filter_rules(
+            array(
+            'tipoId' => 'trim',
+            'Id' => 'trim',
+            'nombre' => 'trim',
+            'telefono' => 'trim',
+            'e_mail' => 'trim',
+            'direccion' => 'trim',
+            'idEmpresa' => 'trim'
+            )
+        );
+    $postData = $gump->sanitize($postData);
+    $validated_data = $gump->run($postData);
+     if ($validated_data === false) {
+            $resultado['codigo_respuesta'] = 400;
+            $resultado['error'] = 1;
+            $resultado['mensaje'] = $gump->get_errors_array();
+            //print_r($resultado);
+        }else{
+            $cliente=consultar_cliente($postData['tipoId'],$postData['Id'],$postData['idEmpresa']);
+            $empresa=consultar_empresa($postData['idEmpresa']);
+            if(count($cliente)>0){
+                $resultado['codigo_respuesta'] = 400;
+                $resultado['error'] = 2;
+                $resultado['mensaje'] = "Este cliente ya se encuentra registrado, no es necesario volverlo a registrar";
+            }else{
+                  if(count($empresa)==0){
+                $resultado['codigo_respuesta'] = 400;
+                $resultado['error'] = 2;
+                $resultado['mensaje'] = "Esta empresa no existe, por favor registrar la empresa primero.";
+                  }else{
+                    $resultado=insertar_cliente($postData);
+                  }
+                
+            }
+        }
+
+    return $response->withJson($resultado);
+});
+
+function insertar_cliente($postData){
+    try{
+    $myPDO = new PDO('sqlite:../bd/creditos.db');
+    $stmt = $myPDO->prepare("INSERT INTO cliente(tipoId, Id, Nombre, Telefono, email, direccion, idEmpresa) VALUES(?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$postData['tipoId'],$postData['Id'], $postData['nombre'], $postData['telefono'], $postData['e_mail'], $postData['direccion'], $postData['idEmpresa']]);
+    $resultado['codigo_respuesta'] = 200;
+    $resultado['mensaje'] = "cliente registrado correctamente";
+    }catch(Exception $p){
+        $resultado['codigo_respuesta'] = 400;
+        $resultado['error'] = 3;
+        $resultado['mensaje'] = "Se presentó un error en BD: ".$p->getMessage();
+    }
+   return $resultado;
+}
+
+function consultar_cliente($tipoId, $id, $idEmpresa){
+    $myPDO = new PDO('sqlite:../bd/creditos.db');
+    $stmt = $myPDO->prepare('SELECT * FROM cliente WHERE tipoId=:tipoId AND Id=:id AND idEmpresa=:idEmpresa');
+    $stmt->bindValue(':tipoId', $tipoId);
+    $stmt->bindValue(':id', $id);
+    $stmt->bindValue(':idEmpresa', $idEmpresa);
+    $stmt->execute();
+    // Fetch the records so we can display them in our template.
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $result;
+}
 
 function insertar_empresa($nit, $nombre){
     try{
