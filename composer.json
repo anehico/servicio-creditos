@@ -1,0 +1,20 @@
+{
+    "name": "Sistema de Gestión de eventos/api-rest",
+    "description": "An REST api for thirdparty users",
+    "keywords": ["eventos","rest"],
+    "homepage": "http://github.com/slimphp/Slim-Skeleton",
+    "authors": [
+        {
+            "name": "David Andrés Manzao Herrera",
+            "email": "damanzano@icesi.edu.co",
+            "homepage": "http://www.davidmanzano.me"
+        }
+    ],
+    "require": {
+        "php": ">=5.5.0",
+        "slim/slim": "^3.1",
+        "slim/php-view": "^2.0",
+        "monolog/monolog": "^1.17",
+        "wixel/gump": "^1.6"
+    }
+}
