@@ -248,6 +248,230 @@ $app1->post('/EditarCliente', function (Request $request, Response $response) {
         return $response->withJson($resultado);
     });
 
+$app1->post('/RegistrarCredito', function (Request $request, Response $response) { 
+    $name = $request->getAttribute('name');
+    $postData = $request->getParsedBody();
+    $gump = new GUMP('es');
+    $gump->validation_rules(
+            array(
+            'idEmpresa' => 'required|numeric',
+            'factura' => 'required|max_len,50',
+            'valorTotal' => 'required|numeric',
+            'cuotasTotales' => 'required|numeric',
+            'cuotasPendientes' => 'numeric',
+            'estado' => 'required|contains,1 2',
+            'idCliente' => 'required|max_len,15',
+            'tipoId' => 'required|contains,1 2 3 4 5'
+            )
+        );
+     $gump->filter_rules(
+            array(
+            'idEmpresa' => 'trim',
+            'factura' => 'trim',
+            'valorTotal' => 'trim',
+            'cuotasTotales' => 'trim',
+            'cuotasPendientes' => 'trim',
+            'estado' => 'trim',
+            'idCliente' => 'trim',
+            'tipoId' => 'trim'
+            )
+        );
+    $postData = $gump->sanitize($postData);
+    $validated_data = $gump->run($postData);
+     if ($validated_data === false) {
+            $resultado['codigo_respuesta'] = 400;
+            $resultado['error'] = 1;
+            $resultado['mensaje'] = $gump->get_errors_array();
+            //print_r($resultado);
+        }else{
+            $cliente=consultar_cliente($postData['tipoId'],$postData['idCliente'],$postData['idEmpresa']);
+            $empresa=consultar_empresa($postData['idEmpresa']);
+            if(count($cliente)==0){
+                $resultado['codigo_respuesta'] = 400;
+                $resultado['error'] = 2;
+                $resultado['mensaje'] = "Este cliente no existe";
+            }else{
+                  if(count($empresa)==0){
+                $resultado['codigo_respuesta'] = 400;
+                $resultado['error'] = 2;
+                $resultado['mensaje'] = "Esta empresa no existe, por favor registrar la empresa primero.";
+                  }else{
+                    $resultado=insertar_credito($postData);
+                  }
+                
+            }
+        }
+
+    return $response->withJson($resultado);
+});
+
+$app1->post('/ConsultarCreditosByCliente', function (Request $request, Response $response) {
+    $name = $request->getAttribute('name');
+    $postData = $request->getParsedBody();
+    $gump = new GUMP('es');
+    $gump->validation_rules(
+            array(
+            'tipoId' => 'required|contains,1 2 3 4 5',
+            'Id' => 'required|max_len,15',
+            'idEmpresa' => 'required|numeric'
+            )
+        );
+    $gump->filter_rules(
+            array(
+            'tipoId' => 'trim',
+            'Id' => 'trim',
+            'idEmpresa' => 'trim'
+            )
+        );
+    $postData = $gump->sanitize($postData);
+    $validated_data = $gump->run($postData);
+     if ($validated_data === false) {
+        $resultado['codigo_respuesta'] = 400;
+        $resultado['error'] = 1;
+        $resultado['mensaje'] = $gump->get_errors_array();
+     }else{
+        $cliente=consultar_cliente($postData['tipoId'],$postData['Id'],$postData['idEmpresa']);
+         if(count($cliente)==0){
+                $resultado['codigo_respuesta'] = 400;
+                $resultado['error'] = 2;
+                $resultado['mensaje'] = "Este cliente no existe";
+            }else{
+                $resultado=consultar_credito_by_cliente($postData['Id'],$postData['idEmpresa']);
+            }
+     }
+     return $response->withJson($resultado);
+
+    });
+
+$app1->post('/ConsultarCreditosById', function (Request $request, Response $response) {
+    $name = $request->getAttribute('name');
+    $postData = $request->getParsedBody();
+    $gump = new GUMP('es');
+    $gump->validation_rules(
+            array(
+            'Id' => 'required|numeric'
+            )
+        );
+    $gump->filter_rules(
+            array(
+            'Id' => 'trim'
+            )
+        );
+    $postData = $gump->sanitize($postData);
+    $validated_data = $gump->run($postData);
+     if ($validated_data === false) {
+        $resultado['codigo_respuesta'] = 400;
+        $resultado['error'] = 1;
+        $resultado['mensaje'] = $gump->get_errors_array();
+     }else{
+        $resultado=consultar_credito_by_id($postData['Id']);
+     }
+        return $response->withJson($resultado);
+     });
+
+$app1->post('/RegistrarAbono', function (Request $request, Response $response) { 
+    $name = $request->getAttribute('name');
+    $postData = $request->getParsedBody();
+    $gump = new GUMP('es');
+    $gump->validation_rules(
+            array(
+            'idCredito' => 'required|numeric',
+            'fecha' => 'required|date'
+            )
+        );
+    $gump->filter_rules(
+            array(
+            'idCredito' => 'trim',
+            'fecha' => 'trim'
+            )
+        );
+    $postData = $gump->sanitize($postData);
+    $validated_data = $gump->run($postData);
+     if ($validated_data === false) {
+        $resultado['codigo_respuesta'] = 400;
+        $resultado['error'] = 1;
+        $resultado['mensaje'] = $gump->get_errors_array();
+     }else{
+        $credito=consultar_credito_by_id($postData['idCredito']);
+        if(count($credito)==0){
+             $resultado['codigo_respuesta'] = 400;
+             $resultado['error'] = 6;
+             $resultado['mensaje'] = "Este crédito no existe";
+        }else{
+            $estado=$credito[0]['estado'];
+            if($estado==2){
+             $resultado['codigo_respuesta'] = 400;
+             $resultado['error'] = 7;
+             $resultado['mensaje'] = "Este crédito ya está en estado cancelado, no se puede registrar la cuota";
+            }else{
+                $resultado=insertar_cuota($postData,$credito[0]['cuotasPendientes'],$credito[0]['cuotasTotales'], $credito[0]['valorCuota'], $credito[0]['idCredito']);
+            }
+        }
+
+     }
+     return $response->withJson($resultado);
+     });
+
+function insertar_cuota($datos,$cuotasPendientes,$cuotasTotales,$valorCuota,$idCredito){
+     try{
+     $estado=1;
+     $myPDO = new PDO('sqlite:../bd/creditos.db');
+     $stmt = $myPDO->prepare("INSERT INTO abonos(idCredito, fecha, valorAbono) VALUES(?, ?, ?)");
+     $stmt->execute([$datos['idCredito'],$datos['fecha'], $valorCuota]);
+     $cuotasPendientes-=1;
+     if($cuotasPendientes<=0){
+        $estado=2;
+     }
+     $stmt = $myPDO->prepare("UPDATE credito SET cuotasPendientes=?, estado=? WHERE idCredito=?");
+     $stmt->execute([$cuotasPendientes,$estado, $idCredito]);
+     $resultado['codigo_respuesta'] = 200;
+     $resultado['mensaje'] = "Cuota ingresada correctamente";
+        
+      }catch(Exception $p){
+        $resultado['codigo_respuesta'] = 400;
+        $resultado['error'] = 3;
+        $resultado['mensaje'] = "Se presentó un error en BD: ".$p->getMessage();
+    }
+   return $resultado;  
+}
+
+function consultar_credito_by_id($id){
+    $myPDO = new PDO('sqlite:../bd/creditos.db');
+    $stmt = $myPDO->prepare('SELECT * FROM credito WHERE idCredito=:idCredito');
+    $stmt->bindValue(':idCredito', $id);
+    $stmt->execute();
+    // Fetch the records so we can display them in our template.
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $result;
+}
+
+function consultar_credito_by_cliente($idCliente, $idEmpresa){
+    $myPDO = new PDO('sqlite:../bd/creditos.db');
+    $stmt = $myPDO->prepare('SELECT * FROM credito WHERE idCliente=:idCliente AND idEmpresa=:idEmpresa');
+    $stmt->bindValue(':idCliente', $idCliente);
+    $stmt->bindValue(':idEmpresa', $idEmpresa);
+    $stmt->execute();
+    // Fetch the records so we can display them in our template.
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    return $result;
+}
+
+function insertar_credito($postData){
+    try{
+         $myPDO = new PDO('sqlite:../bd/creditos.db');
+         $valorCuota=(double)$postData['valorTotal']/(double)$postData['cuotasTotales'];
+         $stmt = $myPDO->prepare("INSERT INTO credito(idEmpresa, factura, valorTotal, cuotasTotales, cuotasPendientes, valorCuota, estado, idCliente) VALUES(?, ?, ?, ?, ?, ?, ?, ?)");
+         $stmt->execute([$postData['idEmpresa'],$postData['factura'],$postData['valorTotal'], $postData['cuotasTotales'], $postData['cuotasPendientes'],  $valorCuota, $postData['estado'], $postData['idCliente']]);
+        $resultado['codigo_respuesta'] = 200;
+        $resultado['mensaje'] = "credito ingresado correctamente";
+        }catch(Exception $p){
+        $resultado['codigo_respuesta'] = 400;
+        $resultado['error'] = 3;
+        $resultado['mensaje'] = "Se presentó un error en BD: ".$p->getMessage();
+    }
+   return $resultado;
+ 
+}
 
 function actualizar_cliente($postData){
     try{
