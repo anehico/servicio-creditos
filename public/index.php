@@ -188,7 +188,7 @@ $app1->post('/ConsultarCliente', function (Request $request, Response $response)
         $cliente=consultar_cliente($postData['tipoId'],$postData['Id'],$postData['idEmpresa']);
         if(count($cliente)>0){
             $resultado=$cliente;
-           
+
         }else{
            $resultado['codigo_respuesta'] = 400;
            $resultado['error'] = 5;
@@ -199,6 +199,71 @@ $app1->post('/ConsultarCliente', function (Request $request, Response $response)
     return $response->withJson($resultado);
 
     });
+
+$app1->post('/EditarCliente', function (Request $request, Response $response) {
+    $name = $request->getAttribute('name');
+    $postData = $request->getParsedBody();
+    $gump = new GUMP('es');
+    $gump->validation_rules(
+            array(
+            'tipoId' => 'required|contains,1 2 3 4 5',
+            'Id' => 'required|max_len,15',
+            'nombre' => 'required|max_len,255',
+            'telefono' => 'required|max_len,50',
+            'e_mail' => 'required|valid_email|max_len,50',
+            'direccion' => 'required|max_len,255',
+            'idEmpresa' => 'required|numeric'
+            )
+        );
+    $gump->filter_rules(
+            array(
+            'tipoId' => 'trim',
+            'Id' => 'trim',
+            'nombre' => 'trim',
+            'telefono' => 'trim',
+            'e_mail' => 'trim',
+            'direccion' => 'trim',
+            'idEmpresa' => 'trim'
+            )
+        );
+    $postData = $gump->sanitize($postData);
+    $validated_data = $gump->run($postData);
+     if ($validated_data === false) {
+            $resultado['codigo_respuesta'] = 400;
+            $resultado['error'] = 1;
+            $resultado['mensaje'] = $gump->get_errors_array();
+            //print_r($resultado);
+        }else{
+           $cliente=consultar_cliente($postData['tipoId'],$postData['Id'],$postData['idEmpresa']); 
+           if(count($cliente)>0){
+            $resultado=actualizar_cliente($postData);
+
+        }else{
+           $resultado['codigo_respuesta'] = 400;
+           $resultado['error'] = 5;
+           $resultado['mensaje'] = "Este cliente no existe"; 
+        }
+
+        }
+        return $response->withJson($resultado);
+    });
+
+
+function actualizar_cliente($postData){
+    try{
+    $myPDO = new PDO('sqlite:../bd/creditos.db');
+    $stmt = $myPDO->prepare("UPDATE cliente SET Nombre=?, Telefono=?, email=?, direccion=? WHERE  tipoId=? AND Id=? AND idEmpresa=?");
+    $stmt->execute([$postData['nombre'], $postData['telefono'], $postData['e_mail'], $postData['direccion'], $postData['tipoId'],$postData['Id'], $postData['idEmpresa']]);
+    $resultado['codigo_respuesta'] = 200;
+    $resultado['mensaje'] = "cliente actualizado correctamente";
+    }catch(Exception $p){
+        $resultado['codigo_respuesta'] = 400;
+        $resultado['error'] = 3;
+        $resultado['mensaje'] = "Se presentó un error en BD: ".$p->getMessage();
+    }
+   return $resultado;
+
+}
 
 function insertar_cliente($postData){
     try{
