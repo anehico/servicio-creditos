@@ -160,6 +160,46 @@ $app1->post('/insertarCliente', function (Request $request, Response $response) 
     return $response->withJson($resultado);
 });
 
+$app1->post('/ConsultarCliente', function (Request $request, Response $response) {
+    $name = $request->getAttribute('name');
+    $postData = $request->getParsedBody();
+    $gump = new GUMP('es');
+    $gump->validation_rules(
+            array(
+            'tipoId' => 'required|contains,1 2 3 4 5',
+            'Id' => 'required|max_len,15',
+            'idEmpresa' => 'required|numeric'
+            )
+        );
+    $gump->filter_rules(
+            array(
+            'tipoId' => 'trim',
+            'Id' => 'trim',
+            'idEmpresa' => 'trim'
+            )
+        );
+    $postData = $gump->sanitize($postData);
+    $validated_data = $gump->run($postData);
+     if ($validated_data === false) {
+        $resultado['codigo_respuesta'] = 400;
+        $resultado['error'] = 1;
+        $resultado['mensaje'] = $gump->get_errors_array();
+     }else{
+        $cliente=consultar_cliente($postData['tipoId'],$postData['Id'],$postData['idEmpresa']);
+        if(count($cliente)>0){
+            $resultado=$cliente;
+           
+        }else{
+           $resultado['codigo_respuesta'] = 400;
+           $resultado['error'] = 5;
+           $resultado['mensaje'] = "Este cliente no existe"; 
+        }
+
+     }
+    return $response->withJson($resultado);
+
+    });
+
 function insertar_cliente($postData){
     try{
     $myPDO = new PDO('sqlite:../bd/creditos.db');
