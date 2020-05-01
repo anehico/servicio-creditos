@@ -208,11 +208,11 @@ $app1->post('/EditarCliente', function (Request $request, Response $response) {
             array(
             'tipoId' => 'required|contains,1 2 3 4 5',
             'Id' => 'required|max_len,15',
-            'nombre' => 'required|max_len,255',
-            'telefono' => 'required|max_len,50',
-            'e_mail' => 'required|valid_email|max_len,50',
-            'direccion' => 'required|max_len,255',
-            'idEmpresa' => 'required|numeric'
+            'nombre' => 'max_len,255',
+            'telefono' => 'max_len,50',
+            'e_mail' => 'valid_email|max_len,50',
+            'direccion' => 'max_len,255',
+            'idEmpresa' => 'numeric'
             )
         );
     $gump->filter_rules(
@@ -411,6 +411,59 @@ $app1->post('/RegistrarAbono', function (Request $request, Response $response) {
      }
      return $response->withJson($resultado);
      });
+
+$app1->post('/ReporteCreditosByEmpresa', function (Request $request, Response $response) {
+    $name = $request->getAttribute('name');
+    $postData = $request->getParsedBody();
+    $gump = new GUMP('es');
+    $gump->validation_rules(
+            array(
+            'Id' => 'required|numeric'
+            )
+        );
+    $gump->filter_rules(
+            array(
+            'Id' => 'trim'
+            )
+        );
+    $postData = $gump->sanitize($postData);
+    $validated_data = $gump->run($postData);
+     if ($validated_data === false) {
+        $resultado['codigo_respuesta'] = 400;
+        $resultado['error'] = 1;
+        $resultado['mensaje'] = $gump->get_errors_array();
+     }else{
+        $resultado=consultar_reporte_by_empresa($postData['Id']);
+         if(count($resultado)==0){
+            $resultado['codigo_respuesta'] = 400;
+            $resultado['error'] = 10;
+            $resultado['mensaje'] = "No existen creditos";
+         }
+
+     }
+        return $response->withJson($resultado);
+     });
+
+function consultar_reporte_by_empresa($id_empresa){
+    $myPDO = new PDO('sqlite:../bd/creditos.db');
+    $stmt = $myPDO->prepare('SELECT * FROM credito WHERE idEmpresa=:idEmpresa');
+    $stmt->bindValue(':idEmpresa', $id_empresa);
+    $stmt->execute();
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $no_resultados=count($result);
+    for ($i=0; $i < $no_resultados; $i++) { 
+       $cuotas_pagadas= (int)$result[$i]['cuotasTotales'] -  (int)$result[$i]['cuotasPendientes'];
+       $valor_pagado= (double)$result[$i]['valorCuota'] * $cuotas_pagadas ;
+       $valor_restante=(double)$result[$i]['valorTotal'] - $valor_pagado ;
+       $result[$i]['valorRestante']=$valor_restante;
+       $result[$i]['valorPagado']=$valor_pagado;
+       $result[$i]['cuotasPagadas']=$cuotas_pagadas;
+
+
+    }
+    return $result;
+
+}
 
 function insertar_cuota($datos,$cuotasPendientes,$cuotasTotales,$valorCuota,$idCredito){
      try{
